@@ -6,7 +6,7 @@ from game_logic import GameLogic
 
 class BattleshipApp:
     def __init__(self):
-        self.gui = BattleshipGUI(self.on_host, self.on_join, self.on_rps_choice, self.on_shoot, self.on_chat_send, self.on_rematch, self.on_quit)
+        self.gui = BattleshipGUI(self.on_host, self.on_join, self.on_rps_choice, self.on_shoot, self.on_chat_send, self.on_rematch, self.on_menu, self.on_quit)
         self.network = NetworkManager(self.on_message_received)
         self.game_logic = GameLogic()
         
@@ -25,6 +25,7 @@ class BattleshipApp:
         self.gui.mainloop()
 
     def on_closing(self):
+        self.network.send_message("QUIT")
         self.network.close()
         self.gui.destroy()
 
@@ -66,6 +67,25 @@ class BattleshipApp:
     def on_quit(self):
         self.on_closing()
 
+    def on_menu(self):
+        self.network.send_message("QUIT")
+        self.network.close()
+        self.reset_to_menu()
+
+    def reset_to_menu(self):
+        self.game_logic.reset()
+        self.gui.reset_boards()
+        self.gui.hide_game_controls()
+        self.my_rps_choice = None
+        self.opp_rps_choice = None
+        self.my_rematch_choice = False
+        self.opp_rematch_choice = False
+        self.game_over = False
+        self.game_started = False
+        self.shots_fired = [[False]*10 for _ in range(10)]
+        self.gui.show_frame("connect")
+        self.gui.update_rps_status("Escolha a sua jogada:")
+
     def check_rematch(self):
         if self.my_rematch_choice and self.opp_rematch_choice:
             self.reset_game()
@@ -73,6 +93,7 @@ class BattleshipApp:
     def reset_game(self):
         self.game_logic.reset()
         self.gui.reset_boards()
+        self.gui.hide_game_controls()
         self.my_rps_choice = None
         self.opp_rps_choice = None
         self.my_rematch_choice = False
@@ -118,9 +139,9 @@ class BattleshipApp:
                 self.set_turn(True)
                 
             if self.game_logic.is_game_over():
-                self.network.send_message("WIN")
+                self.network.send_message(f"WIN_REVEAL {self.game_logic.get_board_string()}")
                 self.game_over = True
-                self.gui.show_game_over("Derrota! Seus navios afundaram.", False)
+                self.gui.show_game_over_on_board("Derrota! Seus navios afundaram.", False)
 
         elif msg.startswith("REPLY_HIT "):
             _, r, c = msg.split(" ")
@@ -138,7 +159,29 @@ class BattleshipApp:
 
         elif msg == "WIN":
             self.game_over = True
-            self.gui.show_game_over("Vitória! Frota inimiga destruída.", True)
+            self.gui.show_game_over_on_board("Vitória! Frota inimiga destruída.", True)
+
+        elif msg.startswith("WIN_REVEAL "):
+            board_str = msg.split(" ")[1]
+            self.game_over = True
+            self.gui.reveal_opponent_ships(board_str)
+            self.gui.show_game_over_on_board("Vitória! Frota inimiga destruída.", True)
+            self.network.send_message(f"REVEAL {self.game_logic.get_board_string()}")
+            
+        elif msg.startswith("REVEAL "):
+            board_str = msg.split(" ")[1]
+            self.gui.reveal_opponent_ships(board_str)
+            
+        elif msg == "QUIT":
+            if self.game_started and not self.game_over:
+                self.game_over = True
+                self.gui.show_game_over_on_board("Vitória por Desconexão! O oponente saiu.", True)
+            elif self.game_over:
+                self.opp_rematch_choice = False
+                self.gui.btn_rematch.config(text="Oponente saiu", state="disabled")
+            else:
+                messagebox.showinfo("Aviso", "Oponente se desconectou.")
+                self.reset_to_menu()
 
         elif msg == "REMATCH":
             self.opp_rematch_choice = True

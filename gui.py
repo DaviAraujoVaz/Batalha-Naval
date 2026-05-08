@@ -2,10 +2,10 @@ import tkinter as tk
 from tkinter import messagebox, scrolledtext
 
 class BattleshipGUI(tk.Tk):
-    def __init__(self, on_host, on_join, on_rps_choice, on_shoot, on_chat_send, on_rematch, on_quit):
+    def __init__(self, on_host, on_join, on_rps_choice, on_shoot, on_chat_send, on_rematch, on_menu, on_quit):
         super().__init__()
         self.title("Batalha Naval UDP")
-        self.geometry("900x600")
+        self.geometry("900x650")
         self.configure(bg="#1E1E2E")
         self.resizable(False, False)
 
@@ -15,6 +15,7 @@ class BattleshipGUI(tk.Tk):
         self.on_shoot = on_shoot
         self.on_chat_send = on_chat_send
         self.on_rematch = on_rematch
+        self.on_menu = on_menu
         self.on_quit = on_quit
         
         self.my_board_canvas = None
@@ -33,7 +34,6 @@ class BattleshipGUI(tk.Tk):
         self._build_join_frame()
         self._build_rps_frame()
         self._build_game_frame()
-        self._build_game_over_frame()
         
         self.show_frame("connect")
 
@@ -207,30 +207,42 @@ class BattleshipGUI(tk.Tk):
         btn_send = tk.Button(entry_frame, text="Enviar", command=self._handle_chat_send, bg="#89B4FA", fg="#11111B", relief="flat")
         btn_send.pack(side="right")
 
-    def _build_game_over_frame(self):
-        frame = tk.Frame(self.container, bg="#1E1E2E")
-        self.frames["game_over"] = frame
+        # Game Controls (hidden initially)
+        self.game_controls_frame = tk.Frame(frame, bg="#1E1E2E")
         
-        self.lbl_go_title = tk.Label(frame, text="", font=("Arial", 28, "bold"), bg="#1E1E2E")
-        self.lbl_go_title.pack(pady=60)
+        self.btn_rematch = tk.Button(self.game_controls_frame, text="Jogar Novamente", font=("Arial", 14, "bold"), bg="#89B4FA", fg="#11111B", command=self._handle_rematch, relief="flat", padx=10, pady=5)
+        self.btn_rematch.pack(side="left", padx=20)
+
+        self.btn_menu = tk.Button(self.game_controls_frame, text="Voltar ao Menu", font=("Arial", 14, "bold"), bg="#45475A", fg="white", command=self.on_menu, relief="flat", padx=10, pady=5)
+        self.btn_menu.pack(side="left", padx=10)
         
-        self.btn_rematch = tk.Button(frame, text="Jogar Novamente", font=("Arial", 16, "bold"), bg="#89B4FA", fg="#11111B",
-                                     command=self._handle_rematch, relief="flat", padx=20, pady=10)
-        self.btn_rematch.pack(pady=20)
-        
-        btn_quit = tk.Button(frame, text="Sair", font=("Arial", 16, "bold"), bg="#F38BA8", fg="#11111B",
-                             command=self.on_quit, relief="flat", padx=20, pady=10)
-        btn_quit.pack(pady=10)
+        self.btn_quit = tk.Button(self.game_controls_frame, text="Sair", font=("Arial", 14, "bold"), bg="#F38BA8", fg="#11111B", command=self.on_quit, relief="flat", padx=10, pady=5)
+        self.btn_quit.pack(side="right", padx=20)
 
     def _handle_rematch(self):
         self.btn_rematch.config(text="Aguardando oponente...", state="disabled")
         self.on_rematch()
 
-    def show_game_over(self, result, is_win):
+    def show_game_over_on_board(self, result, is_win):
         color = "#A6E3A1" if is_win else "#F38BA8"
-        self.lbl_go_title.config(text=result, fg=color)
+        self.lbl_turn.config(text=result, fg=color)
         self.btn_rematch.config(text="Jogar Novamente", state="normal")
-        self.show_frame("game_over")
+        self.game_controls_frame.pack(fill="x", pady=10)
+
+    def hide_game_controls(self):
+        self.game_controls_frame.pack_forget()
+
+    def reveal_opponent_ships(self, board_string):
+        i = 0
+        for r in range(10):
+            for c in range(10):
+                if i < len(board_string) and board_string[i] == '1':
+                    rect_id = self.target_grid_rects[r][c]
+                    current_color = self.target_board_canvas.itemcget(rect_id, "fill")
+                    # Se não for hit (vermelho), pinta de uma cor diferente para revelar (ciano opaco)
+                    if current_color != "#F38BA8":
+                        self.target_board_canvas.itemconfig(rect_id, fill="#74C7EC")
+                i += 1
 
     def reset_boards(self):
         for r in range(10):

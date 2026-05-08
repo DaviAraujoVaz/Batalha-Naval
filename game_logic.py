@@ -77,5 +77,12 @@ class GameLogic:
             self.board[row][col] = -2 # -2 represents a missed shot in water
             return False
 
+    def get_board_string(self):
+        s = ""
+        for row in self.board:
+            for cell in row:
+                s += "1" if abs(cell) == 1 else "0"
+        return s
+
     def is_game_over(self):
         return self.hits_received >= self.total_ship_parts
